@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Leads — Sales CRM</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">Sales <span>CRM</span></div>
+    <nav>
+      <a href="/"><span class="icon">📊</span> Dashboard</a>
+      <a href="/leads" class="active"><span class="icon">🎯</span> Leads</a>
+      <a href="/customers"><span class="icon">👥</span> Customers</a>
+      <a href="/orders"><span class="icon">📦</span> Sales Orders</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">🎯 Leads</div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>All Leads</h2>
+        <button class="btn btn-primary" onclick="openModal()">+ Add Lead</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="leads-table">
+          <tr><td colspan="6" class="empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h3 id="modal-title">Add New Lead</h3>
+      <input type="hidden" id="lead-id" />
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" id="lead-name" placeholder="e.g. Ali Raza" />
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="lead-email" placeholder="ali@example.com" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" id="lead-phone" placeholder="0300-1234567" />
+        </div>
+        <div class="form-group">
+          <label>Company</label>
+          <input type="text" id="lead-company" placeholder="Company name" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="lead-status">
+          <option>New</option>
+          <option>Contacted</option>
+          <option>Converted</option>
+          <option>Lost</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="lead-notes" rows="2" placeholder="Any notes..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveLead()">Save Lead</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = "";
+
+    function badge(status) {
+      const map = { New:"badge-new", Contacted:"badge-contacted", Converted:"badge-converted", Lost:"badge-lost" };
+      return `<span class="badge ${map[status]||''}">${status}</span>`;
+    }
+
+    async function loadLeads() {
+      const leads = await fetch(`${API}/api/leads`).then(r => r.json());
+      const tbody = document.getElementById("leads-table");
+      tbody.innerHTML = leads.length
+        ? leads.map(l => `
+          <tr>
+            <td><strong>${l.name}</strong></td>
+            <td>${l.company || "—"}</td>
+            <td>${l.email}</td>
+            <td>${l.phone || "—"}</td>
+            <td>${badge(l.status)}</td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-warning btn-sm" onclick="editLead(${l.id})">Edit</button>
+              ${l.status !== "Converted"
+                ? `<button class="btn btn-success btn-sm" onclick="convertLead(${l.id})">Convert</button>`
+                : ""}
+              <button class="btn btn-danger btn-sm" onclick="deleteLead(${l.id})">Delete</button>
+            </td>
+          </tr>`).join("")
+        : `<tr><td colspan="6" class="empty">No leads found. Add your first lead!</td></tr>`;
+    }
+
+    function openModal(lead = null) {
+      document.getElementById("modal-title").textContent = lead ? "Edit Lead" : "Add New Lead";
+      document.getElementById("lead-id").value      = lead?.id || "";
+      document.getElementById("lead-name").value    = lead?.name || "";
+      document.getElementById("lead-email").value   = lead?.email || "";
+      document.getElementById("lead-phone").value   = lead?.phone || "";
+      document.getElementById("lead-company").value = lead?.company || "";
+      document.getElementById("lead-status").value  = lead?.status || "New";
+      document.getElementById("lead-notes").value   = lead?.notes || "";
+      document.getElementById("modal").classList.add("open");
+    }
+
+    function closeModal() {
+      document.getElementById("modal").classList.remove("open");
+    }
+
+    async function editLead(id) {
+      const lead = await fetch(`${API}/api/leads/${id}`).then(r => r.json());
+      openModal(lead);
+    }
+
+    async function saveLead() {
+      const id = document.getElementById("lead-id").value;
+      const body = {
+        name:    document.getElementById("lead-name").value,
+        email:   document.getElementById("lead-email").value,
+        phone:   document.getElementById("lead-phone").value,
+        company: document.getElementById("lead-company").value,
+        status:  document.getElementById("lead-status").value,
+        notes:   document.getElementById("lead-notes").value,
+      };
+      const url    = id ? `${API}/api/leads/${id}` : `${API}/api/leads`;
+      const method = id ? "PUT" : "POST";
+      await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      closeModal();
+      loadLeads();
+    }
+
+    async function deleteLead(id) {
+      if (!confirm("Delete this lead?")) return;
+      await fetch(`${API}/api/leads/${id}`, { method: "DELETE" });
+      loadLeads();
+    }
+
+    async function convertLead(id) {
+      if (!confirm("Convert this lead to a customer?")) return;
+      const res = await fetch(`${API}/api/leads/${id}/convert`, { method: "POST" });
+      const data = await res.json();
+      alert(data.message || data.error);
+      loadLeads();
+    }
+
+    loadLeads();
+  </script>
+</body>
+</html>

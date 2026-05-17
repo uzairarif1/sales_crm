@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard — Sales CRM</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">Sales <span>CRM</span></div>
+    <nav>
+      <a href="/" class="active"><span class="icon">📊</span> Dashboard</a>
+      <a href="/leads"><span class="icon">🎯</span> Leads</a>
+      <a href="/customers"><span class="icon">👥</span> Customers</a>
+      <a href="/orders"><span class="icon">📦</span> Sales Orders</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-title">📊 Dashboard</div>
+
+    <!-- Stat Cards -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="label">Total Leads</div>
+        <div class="value" id="total-leads">—</div>
+      </div>
+      <div class="stat-card green">
+        <div class="label">Converted Leads</div>
+        <div class="value" id="converted-leads">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Total Customers</div>
+        <div class="value" id="total-customers">—</div>
+      </div>
+      <div class="stat-card green">
+        <div class="label">Total Orders</div>
+        <div class="value" id="total-orders">—</div>
+      </div>
+      <div class="stat-card orange">
+        <div class="label">Pending Orders</div>
+        <div class="value" id="pending-orders">—</div>
+      </div>
+      <div class="stat-card green">
+        <div class="label">Total Revenue</div>
+        <div class="value" id="total-revenue">—</div>
+      </div>
+    </div>
+
+    <!-- Recent Leads -->
+    <div class="card">
+      <div class="card-header">
+        <h2>🎯 Recent Leads</h2>
+        <a href="/leads" class="btn btn-primary">View All</a>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Company</th><th>Email</th><th>Status</th></tr>
+        </thead>
+        <tbody id="recent-leads">
+          <tr><td colspan="4" class="empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Orders -->
+    <div class="card">
+      <div class="card-header">
+        <h2>📦 Recent Orders</h2>
+        <a href="/orders" class="btn btn-primary">View All</a>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Customer</th><th>Product</th><th>Total</th><th>Status</th></tr>
+        </thead>
+        <tbody id="recent-orders">
+          <tr><td colspan="4" class="empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const API = "";
+
+    function badge(status) {
+      const map = {
+        New: "badge-new", Contacted: "badge-contacted",
+        Converted: "badge-converted", Lost: "badge-lost",
+        Pending: "badge-pending", Confirmed: "badge-confirmed",
+        Delivered: "badge-delivered", Cancelled: "badge-cancelled"
+      };
+      return `<span class="badge ${map[status] || ''}">${status}</span>`;
+    }
+
+    async function loadDashboard() {
+      const stats = await fetch(`${API}/api/dashboard`).then(r => r.json());
+      document.getElementById("total-leads").textContent      = stats.total_leads;
+      document.getElementById("converted-leads").textContent  = stats.converted_leads;
+      document.getElementById("total-customers").textContent  = stats.total_customers;
+      document.getElementById("total-orders").textContent     = stats.total_orders;
+      document.getElementById("pending-orders").textContent   = stats.pending_orders;
+      document.getElementById("total-revenue").textContent    =
+        "PKR " + Number(stats.total_revenue).toLocaleString();
+    }
+
+    async function loadRecentLeads() {
+      const leads = await fetch(`${API}/api/leads`).then(r => r.json());
+      const tbody = document.getElementById("recent-leads");
+      const recent = leads.slice(0, 5);
+      tbody.innerHTML = recent.length
+        ? recent.map(l => `
+            <tr>
+              <td>${l.name}</td>
+              <td>${l.company || "—"}</td>
+              <td>${l.email}</td>
+              <td>${badge(l.status)}</td>
+            </tr>`).join("")
+        : `<tr><td colspan="4" class="empty">No leads yet</td></tr>`;
+    }
+
+    async function loadRecentOrders() {
+      const orders = await fetch(`${API}/api/orders`).then(r => r.json());
+      const tbody = document.getElementById("recent-orders");
+      const recent = orders.slice(0, 5);
+      tbody.innerHTML = recent.length
+        ? recent.map(o => `
+            <tr>
+              <td>${o.customer_name}</td>
+              <td>${o.product_name}</td>
+              <td>PKR ${Number(o.total).toLocaleString()}</td>
+              <td>${badge(o.status)}</td>
+            </tr>`).join("")
+        : `<tr><td colspan="4" class="empty">No orders yet</td></tr>`;
+    }
+
+    loadDashboard();
+    loadRecentLeads();
+    loadRecentOrders();
+  </script>
+</body>
+</html>

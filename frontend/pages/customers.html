@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Customers — Sales CRM</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">Sales <span>CRM</span></div>
+    <nav>
+      <a href="/"><span class="icon">📊</span> Dashboard</a>
+      <a href="/leads"><span class="icon">🎯</span> Leads</a>
+      <a href="/customers" class="active"><span class="icon">👥</span> Customers</a>
+      <a href="/orders"><span class="icon">📦</span> Sales Orders</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">👥 Customers</div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>All Customers</h2>
+        <span style="font-size:13px;color:#64748b;">Customers are created by converting leads</span>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Company</th><th>Email</th><th>Phone</th><th>Joined</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="customers-table">
+          <tr><td colspan="6" class="empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h3>Edit Customer</h3>
+      <input type="hidden" id="customer-id" />
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" id="customer-name" />
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="customer-email" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" id="customer-phone" />
+        </div>
+        <div class="form-group">
+          <label>Company</label>
+          <input type="text" id="customer-company" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCustomer()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = "";
+
+    async function loadCustomers() {
+      const customers = await fetch(`${API}/api/customers`).then(r => r.json());
+      const tbody = document.getElementById("customers-table");
+      tbody.innerHTML = customers.length
+        ? customers.map(c => `
+          <tr>
+            <td><strong>${c.name}</strong></td>
+            <td>${c.company || "—"}</td>
+            <td>${c.email}</td>
+            <td>${c.phone || "—"}</td>
+            <td>${new Date(c.created_at).toLocaleDateString()}</td>
+            <td style="display:flex;gap:6px;">
+              <button class="btn btn-warning btn-sm" onclick="editCustomer(${c.id})">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteCustomer(${c.id})">Delete</button>
+            </td>
+          </tr>`).join("")
+        : `<tr><td colspan="6" class="empty">No customers yet. Convert a lead first!</td></tr>`;
+    }
+
+    function closeModal() {
+      document.getElementById("modal").classList.remove("open");
+    }
+
+    async function editCustomer(id) {
+      const c = await fetch(`${API}/api/customers/${id}`).then(r => r.json());
+      document.getElementById("customer-id").value      = c.id;
+      document.getElementById("customer-name").value    = c.name;
+      document.getElementById("customer-email").value   = c.email;
+      document.getElementById("customer-phone").value   = c.phone || "";
+      document.getElementById("customer-company").value = c.company || "";
+      document.getElementById("modal").classList.add("open");
+    }
+
+    async function saveCustomer() {
+      const id = document.getElementById("customer-id").value;
+      const body = {
+        name:    document.getElementById("customer-name").value,
+        email:   document.getElementById("customer-email").value,
+        phone:   document.getElementById("customer-phone").value,
+        company: document.getElementById("customer-company").value,
+      };
+      await fetch(`${API}/api/customers/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      closeModal();
+      loadCustomers();
+    }
+
+    async function deleteCustomer(id) {
+      if (!confirm("Delete this customer and all their orders?")) return;
+      await fetch(`${API}/api/customers/${id}`, { method: "DELETE" });
+      loadCustomers();
+    }
+
+    loadCustomers();
+  </script>
+</body>
+</html>

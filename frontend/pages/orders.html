@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sales Orders — Sales CRM</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="sidebar-logo">Sales <span>CRM</span></div>
+    <nav>
+      <a href="/"><span class="icon">📊</span> Dashboard</a>
+      <a href="/leads"><span class="icon">🎯</span> Leads</a>
+      <a href="/customers"><span class="icon">👥</span> Customers</a>
+      <a href="/orders" class="active"><span class="icon">📦</span> Sales Orders</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="page-title">📦 Sales Orders</div>
+
+    <div class="card">
+      <div class="card-header">
+        <h2>All Orders</h2>
+        <button class="btn btn-primary" onclick="openModal()">+ New Order</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Customer</th><th>Product</th><th>Qty</th><th>Price</th><th>Total</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="orders-table">
+          <tr><td colspan="7" class="empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h3 id="modal-title">New Sales Order</h3>
+      <input type="hidden" id="order-id" />
+      <div class="form-group">
+        <label>Customer *</label>
+        <select id="order-customer"></select>
+      </div>
+      <div class="form-group">
+        <label>Product / Service Name *</label>
+        <input type="text" id="order-product" placeholder="e.g. ERP Starter Package" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Quantity *</label>
+          <input type="number" id="order-qty" value="1" min="1" oninput="calcTotal()" />
+        </div>
+        <div class="form-group">
+          <label>Unit Price (PKR) *</label>
+          <input type="number" id="order-price" placeholder="0.00" oninput="calcTotal()" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Total (auto-calculated)</label>
+        <input type="text" id="order-total" readonly style="background:#f8faff;" placeholder="PKR 0.00" />
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="order-status">
+          <option>Pending</option>
+          <option>Confirmed</option>
+          <option>Delivered</option>
+          <option>Cancelled</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="order-notes" rows="2" placeholder="Any notes..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-cancel" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveOrder()">Save Order</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = "";
+    let customers = [];
+
+    function badge(status) {
+      const map = { Pending:"badge-pending", Confirmed:"badge-confirmed", Delivered:"badge-delivered", Cancelled:"badge-cancelled" };
+      return `<span class="badge ${map[status]||''}">${status}</span>`;
+    }
+
+    function calcTotal() {
+      const qty   = parseFloat(document.getElementById("order-qty").value) || 0;
+      const price = parseFloat(document.getElementById("order-price").value) || 0;
+      document.getElementById("order-total").value = "PKR " + (qty * price).toLocaleString();
+    }
+
+    async function loadCustomers() {
+      customers = await fetch(`${API}/api/customers`).then(r => r.json());
+      const sel = document.getElementById("order-customer");
+      sel.innerHTML = customers.length
+        ? customers.map(c => `<option value="${c.id}">${c.name} — ${c.company || "No company"}</option>`).join("")
+        : `<option disabled>No customers yet — convert a lead first</option>`;
+    }
+
+    async function loadOrders() {
+      const orders = await fetch(`${API}/api/orders`).then(r => r.json());
+      const tbody = document.getElementById("orders-table");
+      tbody.innerHTML = orders.length
+        ? orders.map(o => `
+          <tr>
+            <td><strong>${o.customer_name}</strong><br/><small style="color:#94a3b8">${o.company||""}</small></td>
+            <td>${o.product_name}</td>
+            <td>${o.quantity}</td>
+            <td>PKR ${Number(o.price).toLocaleString()}</td>
+            <td><strong>PKR ${Number(o.total).toLocaleString()}</strong></td>
+            <td>${badge(o.status)}</td>
+            <td style="display:flex;gap:6px;">
+              <button class="btn btn-warning btn-sm" onclick="editOrder(${o.id})">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteOrder(${o.id})">Delete</button>
+            </td>
+          </tr>`).join("")
+        : `<tr><td colspan="7" class="empty">No orders yet. Create your first order!</td></tr>`;
+    }
+
+    async function openModal(order = null) {
+      await loadCustomers();
+      document.getElementById("modal-title").textContent = order ? "Edit Order" : "New Sales Order";
+      document.getElementById("order-id").value       = order?.id || "";
+      document.getElementById("order-product").value  = order?.product_name || "";
+      document.getElementById("order-qty").value      = order?.quantity || 1;
+      document.getElementById("order-price").value    = order?.price || "";
+      document.getElementById("order-status").value   = order?.status || "Pending";
+      document.getElementById("order-notes").value    = order?.notes || "";
+      if (order) document.getElementById("order-customer").value = order.customer_id;
+      calcTotal();
+      document.getElementById("modal").classList.add("open");
+    }
+
+    function closeModal() {
+      document.getElementById("modal").classList.remove("open");
+    }
+
+    async function editOrder(id) {
+      const order = await fetch(`${API}/api/orders/${id}`).then(r => r.json());
+      openModal(order);
+    }
+
+    async function saveOrder() {
+      const id = document.getElementById("order-id").value;
+      const body = {
+        customer_id:  document.getElementById("order-customer").value,
+        product_name: document.getElementById("order-product").value,
+        quantity:     document.getElementById("order-qty").value,
+        price:        document.getElementById("order-price").value,
+        status:       document.getElementById("order-status").value,
+        notes:        document.getElementById("order-notes").value,
+      };
+      const url    = id ? `${API}/api/orders/${id}` : `${API}/api/orders`;
+      const method = id ? "PUT" : "POST";
+      await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      closeModal();
+      loadOrders();
+    }
+
+    async function deleteOrder(id) {
+      if (!confirm("Delete this order?")) return;
+      await fetch(`${API}/api/orders/${id}`, { method: "DELETE" });
+      loadOrders();
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>
